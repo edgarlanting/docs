@@ -10,23 +10,11 @@ toc: false
 
 ## How CockroachDB Security Certificates Work
 
-A secure CockroachDB cluster uses [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security) for encrypted inter-node and client-node communication and requires CA, node, and client certificates and keys:
+A secure CockroachDB cluster uses [TLS](https://en.wikipedia.org/wiki/Transport_Layer_Security) for encrypted inter-node and client-node communication and requires CA, node, and client certificates and keys. 
 
-File name pattern | File usage
--------------|------------
-`ca.crt`     | CA certificate
-`node.crt`   | Server certificate
-`node.key`   | Key for server certificate
-`client.<user>.crt` | Client certificate for `<user>` (eg: `client.root.crt` for user `root`)
-`client.<user>.key` | Key for the client certificate
-
-CockroachDB generates these files in a single directory, usually named the `certs` directory. Along with these files, CockroachDB also generates a CA key. The CA key is never loaded automatically by cockroach commands, so it should be created in a separate directory.
-
-The node and client certificates are signed by the CA certificate. 
+The node and client certificates are signed by the CA certificate. While establishing inter-node or client-node communication, the nodes and clients use the CA certificate to verify each other's identity. 
 
 For each node, the CA certificate, node certificate, and node keys are uploaded to certs directory on the node. For each client, the CA certificate, client certificate, and client keys are uploaded to the client. 
-
-While establishing an inter-node or client-node communication, the nodes and clients use the CA certificate to verify each other's identity. 
 
 For more information, see [Create security certificates](create-security-certificates.html).
 
@@ -36,14 +24,14 @@ You may need to rotate the node, client, or CA certificates in the following sce
 
 - The node, client, or CA certificates are expiring soon. 
 - Your organization's compliance policy may require periodical certificate rotation.
-- The key (for the node, client, or CA) is compromised.
-- You need to modify the contents of a certificate (example: add another DNS name/IP address the node can be reached through, such as a load balancer). In this case, you need to rotate only the node certificates.
+- The key (for a node, client, or CA) is compromised.
+- You need to modify the contents of a certificate, for example, to add another DNS name/IP address of load balancer through which a node can be reached. In this case, you need to rotate only the node certificates.
 
 ## Rotating Client Certificates
 
 Rotating a client certificate involves the following steps:
 
-#### Step 1: Generating a new client key and certificate
+### Step 1. Generate a new client key and certificate
 
 ~~~ shell
 $ cockroach cert create-client <username>
@@ -51,11 +39,11 @@ $ cockroach cert create-client <username>
 --ca-key=my-safe-directory/ca.key
 ~~~
 
-#### Step 2: Uploading the new client certificate and keys to the client
+### Step 2. Upload the new client certificate and keys to the client
 
 Upload the new certificate to the client using your preferred method.
 
-#### Step 3: Have the client use the new certificate
+### Step 3. Have the client use the new certificate
 
 This step is application-specific and may require restarting the client.
 
@@ -64,7 +52,7 @@ This step is application-specific and may require restarting the client.
 
 Rotating a node certificate requires generating a new node certificate and reloading the certificate on the node. Reloading the certificate involves uploading the node certificate to the node and rescanning the certs directory and using the new node certificate in the directory:
 
-#### Step 1: Generate new node certificate and key
+### Step 1. Generate a new node certificate and key
 
 Suppose your existing CA and node certificates are created in the `certs` directory and your CA key is stored in a directory called `my-safe-directory`. Because the node certificate and key already exist, use the `--overwrite` flag to overwrite both certificate and key. Also specify all addresses at which node can be reached:
 
@@ -78,7 +66,7 @@ $ cockroach cert create-node \
 --overwrite
 ~~~ 
 	
-#### Step 2: Upload the certificate and key to the node
+### Step 2. Upload the certificate and key to the node
 
 ~~~ shell
 # Upload the node certificate and key:
@@ -87,7 +75,7 @@ certs/node.key \
 <username>@<node1 address>:~/certs
 ~~~
 
-#### Step 3: Reload the node certificate
+### Step 3. Reload the node certificate
 
 To make a running node rescan the certificates directory and use the new certificates without restarting the node, issue a `SIGHUP` signal to the cockroach process:
 	
@@ -97,15 +85,15 @@ pkill -SIGHUP -x cockroach
 
 The `SIGHUP` signal must be sent by the same user running the process (for example: run with `sudo` if cockroach is running under user `root`).	
 
-## Rotating CA Certificate 
+## Rotating the CA Certificate 
 
-As mentioned [earlier](certificate-rotation.html#how-cockroachdb-security-certificates-work), the node and client certificates are signed by the CA certificate. For each node, the CA certificate, node certificate, and node keys are uploaded to the node. For each client, the CA certificate, client certificate, and client keys are uploaded to the client. While establishing an inter-node or client-node communication, the nodes and clients use the CA certificate to verify each other's identity. 
+As mentioned [earlier](rotate-certificates.html#how-cockroachdb-security-certificates-work), the node and client certificates are signed by the CA certificate. For each node, the CA certificate, node certificate, and node keys are uploaded to the node. For each client, the CA certificate, client certificate, and client keys are uploaded to the client. While establishing an inter-node or client-node communication, the nodes and clients use the CA certificate to verify each other's identity. 
 
 Consider an inter-node communication between two nodes: Node1 and Node2. Node1 checks that the node certificate for Node2 is signed by the same CA certificate as present on Node1, and vice versa for Node2. This is also true for client-node communication. Thus all nodes and clients need to have the same CA certificate uploaded to them; else they cannot verify each other's identity during inter-node or client-node communication. Hence rotating CA certificate also requires rotating node and client certificates. The process to rotate CA certificate is then as follows:
 
-- Rotating the CA certificates: CockroachDB generates a new CA key and a [combined CA certificate](certificate-rotation.html#why-cockroachdb-generates-a-combined-ca-certificate). The combined CA certificate contains the new CA certificate followed by the old CA certificate. The combined CA certificate is uploaded to each node and client. The certs directory on the nodes is rescanned and the clients restarted to use the combined CA certificate for verifying identities during inter-node and client-node communications. 
+- Rotating the CA certificates: CockroachDB generates a new CA key and a [combined CA certificate](rotate-certificates.html#why-cockroachdb-generates-a-combined-ca-certificate). The combined CA certificate contains the new CA certificate followed by the old CA certificate. The combined CA certificate is uploaded to each node and client. The certs directory on the nodes is rescanned and the clients restarted to use the combined CA certificate for verifying identities during inter-node and client-node communications. 
 
-- Rotating the node and client certificates: CockroachDB generates new node and client certificates signed with the new CA certificate. The new node and client certificates are uploaded to the respective nodes and clients. The certs directory on the nodes is rescanned and the clients restarted to use the new certificates for verifying identities during inter-node and client-node communications. We highly recommend that you rotate the CA certificates in advance, and rotate the node and client certificates only when you are confident all the nodes and client have the combined CA uploaded to them. See [Why rotate CA certificate in advance](certificate-rotation.html#why-rotate-ca-certificates-in-advance) for detailed explanation.
+- Rotating the node and client certificates: CockroachDB generates new node and client certificates signed with the new CA certificate. The new node and client certificates are uploaded to the respective nodes and clients. The certs directory on the nodes is rescanned and the clients restarted to use the new certificates for verifying identities during inter-node and client-node communications. We highly recommend that you rotate the CA certificates in advance, and rotate the node and client certificates only when you are confident all the nodes and client have the combined CA uploaded to them. See [Why rotate CA certificate in advance](rotate-certificates.html#why-rotate-ca-certificates-in-advance) for detailed explanation.
 
 ### Why CockroachDB generates a combined CA certificate
 
@@ -119,11 +107,11 @@ Going back to the CA certificate rotation process, the second step of the proces
 
 ### Steps to rotate CA certificate
 
-#### Step 1: Generate new CA key and certificate and append it to existing CA certificate:
+### Step 1. Generate new CA key and certificate and append it to existing CA certificate:
 
 Suppose your existing CA and node certificates are created in the `certs` directory and your CA key is stored in a directory called `my-safe-directory`. 
 
-Then to rotate the CA certificate, first rename the existing CA key:
+To rotate the CA certificate, first rename the existing CA key:
 
 ~~~ shell
 $ mv  my-safe-directory/ca.key my-safe-directory/ca.old.key
@@ -132,14 +120,17 @@ $ mv  my-safe-directory/ca.key my-safe-directory/ca.old.key
 Then use the `--overwrite` flag to generate a new CA certificate and key. 
 
 ~~~ shell
-$ cockroach cert create-ca --certs-dir=certs --ca-key=my-safe-directory/ca.key --overwrite
+$ cockroach cert create-ca \
+--certs-dir=certs \
+--ca-key=my-safe-directory/ca.key \
+--overwrite
 ~~~
 
-This results in the [combined CA certificate](certificate-rotation.html#why-cockroachdb-generates-a-combined-ca-certificate), `ca.crt`, which contains the new certificate followed by the old certificate. 
+This results in the [combined CA certificate](rotate-certificates.html#why-cockroachdb-generates-a-combined-ca-certificate), `ca.crt`, which contains the new certificate followed by the old certificate. 
 
 {{site.data.alerts.callout_danger}}The CA key is never loaded automatically by cockroach commands, so it should be created in a separate directory, identified by the --ca-key flag.{{site.data.alerts.end}}
 
-#### Step 2: Upload new CA certificate to all nodes and clients:
+### Step 2. Upload new CA certificate to all nodes and clients:
 
 ~~~ shell
 # Upload the CA certificate to the node
@@ -151,7 +142,7 @@ Repeat for all nodes.
 
 Upload the CA certificate to all clients using your preferred method.
 
-#### Step 3: Reload CA certificate on the node without restarting the nodes, and restart all clients:
+### Step 3. Reload CA certificate on the node without restarting the nodes, and restart all clients:
 
 For each node, issue a `SIGHUP` signal to the cockroach process. This makes a running node rescan the certificates directory and use the new certificates without restarting:
 		
@@ -163,12 +154,12 @@ The `SIGHUP` signal must be sent by the same user running the process (For examp
 
 Also restart all clients.
 
-#### Step 4: Rotate node and client certificates
+### Step 4. Rotate node and client certificates
 
 Rotate the node and client certificates only when you are confident all nodes and clients have the new CA certificate.
 
-To rotate node certificates, see [Rotate Node Certificates](certificate-rotation.html#rotating-node-certificates).
-To rotate client certificates, see [Rotate Client Certificates](certificate-rotation.html#rotating-client-certificates).
+To rotate node certificates, see [Rotate Node Certificates](rotate-certificates.html#rotating-node-certificates).
+To rotate client certificates, see [Rotate Client Certificates](rotate-certificates.html#rotating-client-certificates).
 
 ## See Also
 
