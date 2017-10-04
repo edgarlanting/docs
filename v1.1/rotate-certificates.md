@@ -72,7 +72,7 @@ $ cockroach cert create-node \
 # Upload the node certificate and key:
 $ scp certs/node.crt \
 certs/node.key \
-<username>@<node1 address>:~/certs
+<username>@<node address>:~/certs
 ~~~
 
 ### Step 3. Reload the node certificate
@@ -84,6 +84,12 @@ pkill -SIGHUP -x cockroach
 ~~~
 
 The `SIGHUP` signal must be sent by the same user running the process (for example: run with `sudo` if cockroach is running under user `root`).	
+
+### Step 4. Check if the certificate rotation was successful
+
+You can check if the certificate rotation was successful on the node by accessing the **Local Node certificates** page on the CockroachDB Admin UI. 
+
+[Access the CockroachDB Admin UI](admin-ui-access-and-navigate.html#access-the-admin-ui) from the node and navigate to the local node certificates page, `https://<http-host value>:<http-port value>/#/reports/certificates/local`. The details of CA certificate as well as node certificate are displayed on the page. Scroll to the node certificate details and check if the **Valid Until** field shows the new value of certificate expiration.
 
 ## Rotating the CA Certificate 
 
@@ -154,7 +160,13 @@ The `SIGHUP` signal must be sent by the same user running the process (For examp
 
 Also restart all clients.
 
-### Step 4. Rotate node and client certificates
+### Step 4. Check if the certificate rotation was successful
+
+You can check if the certificate rotation was successful by accessing the **Local Node certificates** page on the CockroachDB Admin UI from any node. 
+
+[Access the CockroachDB Admin UI](admin-ui-access-and-navigate.html#access-the-admin-ui) from any node and navigate to the local node certificates page, `https://<http-host value>:<http-port value>/#/reports/certificates/local`. If the certificate rotation is successful, the details of old as well as new CA certificates are displayed. Check if the **Valid Until** field of the new CA certificate shows the correct value of certificate expiration.
+
+### Step 5. Rotate node and client certificates
 
 Rotate the node and client certificates only when you are confident all nodes and clients have the new CA certificate.
 
